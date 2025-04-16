@@ -1,0 +1,6 @@
+@Sii.DescargaFolio_HostAddress = http://localhost:5192
+
+GET {{Sii.DescargaFolio_HostAddress}}/api/DescargaFolio/caf?rut=76697248-9&tipoDoc=33&folioInicio=2294&folioFin=2415&fecha=30-12-2024
+Accept: application/json
+
+###
