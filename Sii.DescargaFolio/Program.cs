@@ -1,19 +1,10 @@
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-using Microsoft.Extensions.Azure;
 using Sii.DescargaFolio.Helper;
 using Sii.DescargaFolio.Services;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<IDescargaFolioService, DescargaFolioService>();
-builder.Services.AddSingleton<DigitalCertLoader>();
 builder.Services.AddSingleton<SiiAuthenticator>();
-builder.Services.AddAzureClients(clientBuilder =>
-{
-    clientBuilder.AddBlobServiceClient(builder.Configuration["StorageConnection"]);
-});
-CookieContainer sharedCookieContainer = new();
-builder.Services.AddSingleton(sharedCookieContainer);
+
 builder
     .Services.AddHttpClient(
         "SII",
@@ -24,15 +15,19 @@ builder
     )
     .ConfigurePrimaryHttpMessageHandler(serviceProvider =>
     {
-        DigitalCertLoader certLoader = serviceProvider.GetRequiredService<DigitalCertLoader>();
-        X509Certificate2 cert = certLoader.LoadCertificateAsync().GetAwaiter().GetResult();
-        CookieContainer container = serviceProvider.GetRequiredService<CookieContainer>();
-        return new HttpClientHandler { CookieContainer = container, ClientCertificates = { cert } };
+        IConfiguration config = serviceProvider.GetRequiredService<IConfiguration>();
+        return DigitalCertLoader.LoadCertificateAsync(config).GetAwaiter().GetResult();
     });
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "Sii.DescargaFolio", Version = "v1" });
+    c.EnableAnnotations();
+});
+
 WebApplication app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
@@ -42,4 +37,4 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
-app.Run();
+await app.RunAsync();

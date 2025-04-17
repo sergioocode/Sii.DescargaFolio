@@ -12,20 +12,22 @@ public class SiiAuthenticator
     private static bool _isConnected;
     private static DateTime? _ultimaAutenticacion;
     private static readonly TimeSpan _duracionSesion = TimeSpan.FromHours(2);
+    private static string? _ultimoToken;
 
     public SiiAuthenticator(IHttpClientFactory httpClientFactory)
     {
         _httpClientFactory = httpClientFactory;
     }
 
-    public async Task AutenticarAsync(string referenciaUrl)
+    public async Task<string> AutenticarAsync(string referenciaUrl)
     {
         if (await IsConnectedAsync())
-            return;
+            return _ultimoToken!;
 
         try
         {
             HttpClient client = _httpClientFactory.CreateClient("SII");
+
             HttpResponseMessage response = await client.PostAsync(
                 UrlAuth,
                 new FormUrlEncodedContent(
@@ -34,11 +36,9 @@ public class SiiAuthenticator
             );
 
             if (response.StatusCode == HttpStatusCode.Found)
-            {
                 throw new Exception(
                     "El SII respondió con redirección (302). Puede deberse a un problema con el certificado o sesión expirada."
                 );
-            }
 
             if (!response.IsSuccessStatusCode)
             {
@@ -46,14 +46,36 @@ public class SiiAuthenticator
                 throw new Exception($"Error HTTP {response.StatusCode}: {msg}");
             }
 
+            _ultimoToken = ExtraerTokenDesdeSetCookie(response);
             _isConnected = true;
-            _ultimaAutenticacion = DateTime.Now; // Hora local del sistema que ejecuta la app
+            _ultimaAutenticacion = DateTime.Now;
+
+            return _ultimoToken;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _isConnected = false;
-            throw new Exception($"Fallo la autenticación con el SII: {ex.Message}", ex);
+            throw;
         }
+    }
+
+    private string ExtraerTokenDesdeSetCookie(HttpResponseMessage response)
+    {
+        IEnumerable<string>? setCookies = response.Headers.TryGetValues(
+            "Set-Cookie",
+            out IEnumerable<string>? values
+        )
+            ? values
+            : Enumerable.Empty<string>();
+
+        foreach (string cookie in setCookies)
+            if (cookie.StartsWith("TOKEN=") || cookie.StartsWith("SESSIONID="))
+            {
+                string token = cookie.Split('=', ';')[1];
+                return token;
+            }
+
+        throw new Exception("No se encontró TOKEN ni SESSIONID en los headers Set-Cookie.");
     }
 
     private async Task<bool> IsConnectedAsync()
@@ -62,9 +84,7 @@ public class SiiAuthenticator
             _ultimaAutenticacion.HasValue
             && DateTime.Now - _ultimaAutenticacion.Value < _duracionSesion
         )
-        {
             return true;
-        }
 
         try
         {
@@ -91,14 +111,14 @@ public class SiiAuthenticator
             _isConnected = estadoElement.GetInt32() == 0;
 
             if (_isConnected)
-                _ultimaAutenticacion = DateTime.Now; // Hora local del sistema que ejecuta la app
+                _ultimaAutenticacion = DateTime.Now;
 
             return _isConnected;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _isConnected = false;
-            throw new Exception("Error al consultar estado de sesión con el SII.", ex);
+            throw;
         }
     }
 }

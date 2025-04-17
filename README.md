@@ -6,14 +6,7 @@
 
 # Sii.DescargaFolio
 
-Download CAF (Certificate of Authorization of Folios) files from Chile's Internal Revenue Service (SII) using authenticated HTTPS requests with a valid digital certificate.
-
-It includes:
-
-- Fluent API: `Authenticate → Prepare → Download`
-- Session-aware: avoids redundant authentication
-- Built with .NET 8 + ASP.NET Core + IHttpClientFactory
-- Designed for backend automation and SII integration
+This solution allows you to query the **Download CAF (Certificate of Authorization of Folios) files** from Chile's [Servicio de Impuestos Internos (SII)](https://www.sii.cl/) using scraping. Download XML file using authenticated HTTPS requests with a valid digital certificate.
 
 > ⚠️ This project is not affiliated with the official SII. It is intended for private automation and educational use.
 
